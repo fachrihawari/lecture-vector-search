@@ -1,19 +1,38 @@
 require('dotenv').config();
 
 const { db } = require('./db');
+const { generateEmbedding } = require('./helpers');
 
 async function search(query) {
   console.log(`Searching for: "${query}"`);
 
   try {
+    const embedding = await generateEmbedding(query);
 
-    const products = await db.collection('products').find({
-      name: { $regex: query, $options: 'i' }
-    }).toArray();
+    const pipeline = [
+      {
+        $vectorSearch: {
+          index: 'vector_index',
+          path: 'embedding',
+          queryVector: embedding,
+          numCandidates: 768,
+          limit: 3
+        }
+      }, {
+        '$project': {
+          '_id': 0,
+          'name': 1,
+          'score': {
+            '$meta': 'vectorSearchScore'
+          }
+        }
+      }
+    ]
+
+    const products = await db.collection('products').aggregate(pipeline).toArray();
 
     console.log("Search Results:");
     console.log(products);
-    
 
   } catch (error) {
     console.error('Error searching data:', error);

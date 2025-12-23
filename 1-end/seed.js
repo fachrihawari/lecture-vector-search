@@ -1,27 +1,8 @@
 require('dotenv').config();
 
-const { GoogleGenAI } = require('@google/genai')
 const { db } = require('./db');
+const { generateEmbedding } = require('./helpers');
 const products = require('./products.json');
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
-
-async function generateEmbedding(text) {
-  const response = await ai.models.embedContent({
-    model: 'gemini-embedding-001',
-    contents: text,
-    config: {
-      outputDimensionality: 768
-    }
-  });
-
-  console.log(response.embeddings, "<<< embeddings");
-  
-
-  return response.embeddings[0].values;
-}
 
 async function seedData() {
   try {
