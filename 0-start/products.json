@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Wireless Bluetooth Headphones",
+    "description": "High-quality over-ear headphones with active noise cancellation and 30-hour battery life",
+    "category": "Electronics",
+    "price": 199.99
+  },
+  {
+    "name": "Organic Green Tea",
+    "description": "Premium loose leaf green tea from Japan, rich in antioxidants",
+    "category": "Food & Beverage",
+    "price": 24.99
+  },
+  {
+    "name": "Yoga Mat",
+    "description": "Non-slip eco-friendly yoga mat with extra cushioning, perfect for all types of yoga",
+    "category": "Sports & Fitness",
+    "price": 39.99
+  },
+  {
+    "name": "Smart Watch",
+    "description": "Fitness tracking smartwatch with heart rate monitor, GPS, and sleep tracking",
+    "category": "Electronics",
+    "price": 299.99
+  },
+  {
+    "name": "Coffee Maker",
+    "description": "Programmable drip coffee maker with thermal carafe, makes 12 cups",
+    "category": "Home & Kitchen",
+    "price": 89.99
+  }
+]
