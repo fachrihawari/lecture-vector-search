@@ -290,7 +290,63 @@ node seed.js
 Create `search.js`:
 
 ```javascript
-// TBA
+require('dotenv').config();
+
+const { db } = require('./db');
+
+// STEP 1. Import the embedding generation function
+const { generateEmbedding } = require('./helpers');
+
+async function search(query) {
+  console.log(`Searching for: "${query}"`);
+
+  try {
+
+    // STEP 2. Generate embedding for the search query
+    const embedding = await generateEmbedding(query);
+
+
+    // STEP 3. Construct the aggregation pipeline for vector search
+    const pipeline = [
+      {
+        $vectorSearch: {
+          index: 'vector_index', // index name
+          path: 'embedding', // path containing vectors
+          queryVector: embedding, // query embedding
+          numCandidates: 768, // number of candidates to consider
+          limit: 3 // limit results
+        }
+      }, {
+        '$project': {
+          '_id': 0,
+          'name': 1,
+          'score': {
+            '$meta': 'vectorSearchScore'
+          }
+        }
+      }
+    ]
+
+    // STEP 4. Execute the aggregation pipeline to perform vector search
+    const products = await db.collection('products').aggregate(pipeline).toArray();
+
+    console.log("Search Results:");
+    console.log(products);
+
+  } catch (error) {
+    console.error('Error searching data:', error);
+  } finally {
+    await db.client.close();
+  }
+}
+
+if (process.argv[2]) {
+  const query = process.argv.slice(2).join(' ');
+  search(query);
+} else {
+  console.log("\nNo search query provided. Run example searches with:");
+  console.log("node search.js \"your search query here\"");
+}
 ```
 
 ### Usage
