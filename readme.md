@@ -159,128 +159,37 @@ When a user searches:
 Install the required packages:
 ```bash
 npm init -y
-npm install mongodb @google/generative-ai dotenv
+npm install -D dotenv
+npm install mongodb @google/genai
 ```
 
 ### Project Structure
 ```
 project/
 ├── .env
-├── seed.js
+├── .env.example
+├── db.js
+├── package-lock.json
+├── package.json
+├── products.json
 ├── search.js
-└── package.json
+└── seed.js
 ```
 
 ### Configuration
 
 Create a `.env` file for your credentials:
 ```env
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/
-DB_NAME=vector_search_db
-COLLECTION_NAME=products
+MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 ### Seeding Script
 
-Create `seed.js`:
+Edit `seed.js` to read products, generate embeddings, and store them in MongoDB:
 
 ```javascript
-require('dotenv').config();
-const { MongoClient } = require('mongodb');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// Sample data to seed
-const products = [
-  {
-    name: "Wireless Bluetooth Headphones",
-    description: "High-quality over-ear headphones with active noise cancellation and 30-hour battery life",
-    category: "Electronics",
-    price: 199.99
-  },
-  {
-    name: "Organic Green Tea",
-    description: "Premium loose leaf green tea from Japan, rich in antioxidants",
-    category: "Food & Beverage",
-    price: 24.99
-  },
-  {
-    name: "Yoga Mat",
-    description: "Non-slip eco-friendly yoga mat with extra cushioning, perfect for all types of yoga",
-    category: "Sports & Fitness",
-    price: 39.99
-  },
-  {
-    name: "Smart Watch",
-    description: "Fitness tracking smartwatch with heart rate monitor, GPS, and sleep tracking",
-    category: "Electronics",
-    price: 299.99
-  },
-  {
-    name: "Coffee Maker",
-    description: "Programmable drip coffee maker with thermal carafe, makes 12 cups",
-    category: "Home & Kitchen",
-    price: 89.99
-  }
-];
-
-async function generateEmbedding(text) {
-  try {
-    const model = genAI.getGenerativeModel({ model: "embedding-001" });
-    const result = await model.embedContent(text);
-    return result.embedding.values;
-  } catch (error) {
-    console.error('Error generating embedding:', error);
-    throw error;
-  }
-}
-
-async function seedData() {
-  const client = new MongoClient(process.env.MONGODB_URI);
-  
-  try {
-    await client.connect();
-    console.log('Connected to MongoDB');
-    
-    const db = client.db(process.env.DB_NAME);
-    const collection = db.collection(process.env.COLLECTION_NAME);
-    
-    // Clear existing data
-    await collection.deleteMany({});
-    console.log('Cleared existing data');
-    
-    // Generate embeddings and insert documents
-    for (const product of products) {
-      // Combine name and description for better embeddings
-      const textToEmbed = `${product.name}. ${product.description}`;
-      
-      console.log(`Generating embedding for: ${product.name}`);
-      const embedding = await generateEmbedding(textToEmbed);
-      
-      const document = {
-        ...product,
-        embedding: embedding,
-        createdAt: new Date()
-      };
-      
-      await collection.insertOne(document);
-      console.log(`✓ Inserted: ${product.name}`);
-    }
-    
-    console.log('\n✅ Successfully seeded all products!');
-    console.log(`Total documents: ${products.length}`);
-    
-  } catch (error) {
-    console.error('Error seeding data:', error);
-  } finally {
-    await client.close();
-  }
-}
-
-seedData();
+TBA
 ```
 
 ### Creating the Vector Search Index
@@ -293,18 +202,18 @@ After seeding your data, set up a vector search index in MongoDB Atlas:
 4. Select "JSON Editor"
 5. Use this configuration:
 
-```json
-{
-  "fields": [
-    {
-      "type": "vector",
-      "path": "embedding",
-      "numDimensions": 768,
-      "similarity": "cosine"
-    }
-  ]
-}
-```
+   ```json
+   {
+      "fields": [
+         {
+            "type": "vector",
+            "path": "embedding",
+            "numDimensions": 768,
+            "similarity": "cosine"
+         }
+      ]
+   }
+   ```
 
 6. Name the index `vector_index`
 7. Select your database and collection
@@ -321,117 +230,12 @@ node seed.js
 Create `search.js`:
 
 ```javascript
-require('dotenv').config();
-const { MongoClient } = require('mongodb');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-async function generateEmbedding(text) {
-  try {
-    const model = genAI.getGenerativeModel({ model: "embedding-001" });
-    const result = await model.embedContent(text);
-    return result.embedding.values;
-  } catch (error) {
-    console.error('Error generating embedding:', error);
-    throw error;
-  }
-}
-
-async function vectorSearch(query, limit = 5) {
-  const client = new MongoClient(process.env.MONGODB_URI);
-  
-  try {
-    await client.connect();
-    console.log('Connected to MongoDB');
-    
-    const db = client.db(process.env.DB_NAME);
-    const collection = db.collection(process.env.COLLECTION_NAME);
-    
-    // Generate embedding for the search query
-    console.log(`\nSearching for: "${query}"\n`);
-    const queryEmbedding = await generateEmbedding(query);
-    
-    // Perform vector search
-    const pipeline = [
-      {
-        $vectorSearch: {
-          index: "vector_index",
-          path: "embedding",
-          queryVector: queryEmbedding,
-          numCandidates: 100,
-          limit: limit
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          name: 1,
-          description: 1,
-          category: 1,
-          price: 1,
-          score: { $meta: "vectorSearchScore" }
-        }
-      }
-    ];
-    
-    const results = await collection.aggregate(pipeline).toArray();
-    
-    // Display results
-    console.log('Search Results:');
-    console.log('='.repeat(80));
-    
-    results.forEach((result, index) => {
-      console.log(`\n${index + 1}. ${result.name}`);
-      console.log(`   Category: ${result.category}`);
-      console.log(`   Price: $${result.price}`);
-      console.log(`   Description: ${result.description}`);
-      console.log(`   Relevance Score: ${result.score.toFixed(4)}`);
-    });
-    
-    console.log('\n' + '='.repeat(80));
-    
-    return results;
-    
-  } catch (error) {
-    console.error('Error performing vector search:', error);
-  } finally {
-    await client.close();
-  }
-}
-
-// Example searches
-async function runExamples() {
-  // Example 1: Search for audio devices
-  await vectorSearch("noise cancelling headphones for music");
-  
-  // Example 2: Search for health products
-  await vectorSearch("healthy beverage antioxidants");
-  
-  // Example 3: Search for exercise equipment
-  await vectorSearch("equipment for stretching and meditation");
-}
-
-// Run examples or custom search
-if (process.argv[2]) {
-  // Custom search from command line
-  const query = process.argv.slice(2).join(' ');
-  vectorSearch(query);
-} else {
-  // Run example searches
-  runExamples();
-}
+// TBA
 ```
 
 ### Usage
 
-Run the example searches:
-```bash
-node search.js
-```
-
-Or search with a custom query:
+Run the searches:
 ```bash
 node search.js "fitness tracker with heart monitor"
 node search.js "morning hot beverage"
@@ -446,27 +250,9 @@ Results are ranked by similarity score (0-1):
 - **0.6-0.79**: Moderately similar
 - **< 0.6**: Low similarity
 
-### Example Output
-```
-Searching for: "fitness tracker with heart monitor"
-
-Search Results:
-================================================================================
-
-1. Smart Watch
-   Category: Electronics
-   Price: $299.99
-   Description: Fitness tracking smartwatch with heart rate monitor, GPS, and sleep tracking
-   Relevance Score: 0.8542
-
-2. Yoga Mat
-   Category: Sports & Fitness
-   Price: $39.99
-   Description: Non-slip eco-friendly yoga mat with extra cushioning, perfect for all types of yoga
-   Relevance Score: 0.6234
-```
-
 ---
+
+
 
 ## Resources
 
@@ -474,8 +260,3 @@ Search Results:
 - [Google Gemini AI Documentation](https://ai.google.dev/docs)
 - [Understanding Embeddings](https://en.wikipedia.org/wiki/Embedding_(machine_learning))
 
----
-
-## License
-
-MIT License - Feel free to use this material for educational purposes.
