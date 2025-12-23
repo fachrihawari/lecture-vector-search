@@ -1,0 +1,13 @@
+{
+  "name": "0-start",
+  "version": "1.0.0",
+  "author": "Fachri Hawari<fachri.hawari@gmail.com>",
+  "type": "commonjs",
+  "devDependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "dependencies": {
+    "@google/genai": "^1.34.0",
+    "mongodb": "^7.0.0"
+  }
+}

@@ -189,7 +189,67 @@ GEMINI_API_KEY=your_gemini_api_key_here
 Edit `seed.js` to read products, generate embeddings, and store them in MongoDB:
 
 ```javascript
-TBA
+require('dotenv').config();
+
+const { GoogleGenAI } = require('@google/genai') // STEP 1. Import Gemini AI client
+const { db } = require('./db');
+const products = require('./products.json');
+
+// STEP 2. Initialize Gemini AI client
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
+
+// STEP 3. Function to generate embeddings
+async function generateEmbedding(text) {
+  const response = await ai.models.embedContent({
+    model: 'gemini-embedding-001',
+    contents: text,
+    config: {
+      outputDimensionality: 768
+    }
+  });
+
+  console.log(response.embeddings, "<<< embeddings");
+  
+
+  return response.embeddings[0].values;
+}
+
+async function seedData() {
+  try {
+    // Clear existing data
+    await db.collection('products').deleteMany({});
+    console.log('Cleared existing data');
+
+    // Generate embeddings and insert documents
+    for (const product of products) {
+
+      // STEP 4. Generate embedding for each product 
+      const textToEmbed = `${product.name}. ${product.description}`;
+      const embedding = await generateEmbedding(textToEmbed);
+
+      const document = {
+        ...product,
+        embedding: embedding, // STEP 5. Store embedding in the document
+        createdAt: new Date()
+      };
+
+      await db.collection('products').insertOne(document);
+      console.log(`✓ Inserted: ${product.name}`);
+    }
+
+    console.log('\n✅ Successfully seeded all products!');
+    console.log(`Total documents: ${products.length}`);
+
+  } catch (error) {
+    console.error('Error seeding data:', error);
+  } finally {
+    await db.client.close();
+  }
+}
+
+seedData();
 ```
 
 ### Creating the Vector Search Index
@@ -197,7 +257,7 @@ TBA
 After seeding your data, set up a vector search index in MongoDB Atlas:
 
 1. Navigate to your MongoDB Atlas cluster
-2. Go to the "Search" tab
+2. Go to the "Search & Vector Search" tab
 3. Click "Create Search Index"
 4. Select "JSON Editor"
 5. Use this configuration:
